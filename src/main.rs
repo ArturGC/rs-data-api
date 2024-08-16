@@ -1,49 +1,69 @@
 use axum::{
-    async_trait,
-    body::{Body, Bytes},
-    extract::{FromRequest, Request},
-    http::StatusCode,
-    middleware::{self, Next},
-    response::{IntoResponse, Response},
-    routing::{get, post},
+    extract::{Path, Query},
+    middleware,
+    response::{Html, IntoResponse, Response},
+    routing::{get, get_service, post},
     Router,
 };
+use serde::Deserialize;
+use tower_cookies::CookieManagerLayer;
+use tower_http::services::ServeDir;
+
+pub use self::error::{Error, Result};
+
+mod error;
+mod web;
 
 #[tokio::main]
 async fn main() {
-    // build our application with a single route
+    let address = "127.0.0.1:8080";
+    let listener = tokio::net::TcpListener::bind(address).await.unwrap();
     let app = Router::new()
-        .route("/", get(|| async { "Hello, World!" }))
-        .route("/users", post(create_user));
+        .merge(routes_hello())
+        .merge(web::routes_login::routes())
+        .layer(middleware::map_response(main_response_mapper))
+        .layer(CookieManagerLayer::new())
+        .fallback_service(routes_static());
 
-    // run our app with hyper, listening globally on port 3000
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn create_user(body: BufferRequestBody) {
-    println!("Payload: {:?}", body.0);
+fn routes_hello() -> Router {
+    Router::new()
+        .route("/hello", get(handler_hello))
+        .route("/hello2/:name", get(handler_hello_2))
 }
 
-#[derive(Debug)]
-struct BufferRequestBody(Bytes);
-
-// we must implement `FromRequest` (and not `FromRequestParts`) to consume the body
-#[async_trait]
-impl<S> FromRequest<S> for BufferRequestBody
-where
-    S: Send + Sync,
-{
-    type Rejection = Response;
-
-    async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
-        let body = Bytes::from_request(req, state)
-            .await
-            .map_err(|err| err.into_response())?;
-
-        Ok(Self(body))
-    }
+fn routes_static() -> Router {
+    Router::new().nest_service("/", get_service(ServeDir::new("./")))
 }
 
-// https://www.shuttle.rs/blog/2023/12/06/using-axum-rust
-// https://github.com/tokio-rs/axum/blob/main/examples/consume-body-in-extractor-or-middleware/src/main.rs
+async fn main_response_mapper(res: Response) -> Response {
+    println!("->> {:<12} - main_response_mapper", "RES_MAPPER");
+
+    println!("\n");
+
+    res
+}
+
+#[derive(Debug, Deserialize)]
+struct HelloParams {
+    name: Option<String>,
+}
+
+async fn handler_hello(Query(params): Query<HelloParams>) -> impl IntoResponse {
+    println!("->> {:<12} - handler_hello - {params:?}", "HANDLER");
+
+    let name = params.name.as_deref().unwrap_or("Axum");
+
+    Html(format!("Hello <strong>{name}</strong>!"))
+}
+
+async fn handler_hello_2(Path(name): Path<String>) -> impl IntoResponse {
+    println!(
+        "->> {:<12} - handler_hello_2 - PathParams {name:?}",
+        "HANDLER"
+    );
+
+    Html(format!("Hello <strong>{name}</strong>!"))
+}
