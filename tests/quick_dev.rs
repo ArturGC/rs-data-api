@@ -29,7 +29,7 @@ struct FindOneBody {
 #[tokio::test]
 async fn find_one_path() {
     let body = FindOneBody {
-        filter: doc! {"name": "artur", "age": 31},
+        filter: doc! {"name": "artur"},
         options: FindOneOptions {
             comment: None,
             projection: Some(doc! {"_id": 0}),

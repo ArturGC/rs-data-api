@@ -34,41 +34,25 @@ where
     async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
         let content_type = req.headers().get("content-type").unwrap().to_str().unwrap();
 
-        // println!("Contetn Type: {:?}", content_type);
+        if content_type != "application/ejson" {
+            return Err((StatusCode::BAD_REQUEST, "Deu ruim").into_response());
+        }
 
-        let deserializer = match content_type {
-            "application/bson" => req_bytes_to_bson_deserializer(req, state).await.unwrap(),
-            _ => return Err((StatusCode::BAD_REQUEST, "Deu ruim").into_response()),
-        };
+        let body_bytes = Bytes::from_request(req, state).await.unwrap();
+        let body_ejson: Value = serde_json::from_reader(Cursor::new(body_bytes)).unwrap();
+        let body_bson: Bson = body_ejson.try_into().unwrap();
+        let body_struct = T::deserialize(bson::Deserializer::new(body_bson.into())).unwrap();
 
-        let find_one_body = T::deserialize(deserializer).unwrap();
-
-        Ok(CustomParser(find_one_body))
+        Ok(CustomParser(body_struct))
     }
-}
-
-async fn req_bytes_to_bson_deserializer<S: Send + Sync>(
-    req: Request,
-    state: &S,
-) -> Result<bson::Deserializer, Response> {
-    println!("Application/BSON");
-
-    let body = Bytes::from_request(req, state)
-        .await
-        .map_err(|err| err.into_response())?;
-
-    let reader = Cursor::new(body);
-    let teste: Value = serde_json::from_reader(reader).unwrap();
-    let filter = Document::from_reader(reader).unwrap();
-    let bson_deserializer = bson::Deserializer::new(filter.into());
-
-    Ok(bson_deserializer)
 }
 
 pub async fn handler(
     CustomParser(FindOneBody { filter, options }): CustomParser<FindOneBody>,
 ) -> Bytes {
     println!("Find One Handler");
+    println!("Filter: {:?}", filter);
+    println!("Options: {:?}", options);
 
     let collection = get_users_collection().await;
     let result = collection
