@@ -4,14 +4,6 @@ use mongodb::bson::{self, doc, Binary, Bson, Document};
 use reqwest::header::{self, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 
-// #[tokio::test]
-// async fn root_path() {
-//     let addr = "http://127.0.0.1:8080/";
-//     let body = reqwest::get(addr).await.unwrap().text().await.unwrap();
-
-//     println!("body = {body:?}");
-// }
-
 #[derive(Serialize, Deserialize)]
 struct FindOneOptions {
     pub comment: Option<Bson>,
@@ -23,19 +15,19 @@ struct FindOneOptions {
 #[derive(Serialize, Deserialize)]
 struct FindOneBody {
     pub filter: Document,
-    pub options: FindOneOptions,
+    pub options: Option<FindOneOptions>,
 }
 
 #[tokio::test]
 async fn find_one_path() {
     let body = FindOneBody {
         filter: doc! {"name": "artur"},
-        options: FindOneOptions {
+        options: Some(FindOneOptions {
             comment: None,
             projection: Some(doc! {"_id": 0}),
             skip: None,
             sort: None,
-        },
+        }),
     };
 
     let bson_serializer = bson::Serializer::new();
