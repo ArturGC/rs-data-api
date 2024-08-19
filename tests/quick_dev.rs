@@ -1,17 +1,69 @@
-use anyhow::Result;
-use serde_json::json;
+use std::io::Cursor;
+
+use mongodb::bson::{self, doc, Binary, Bson, Document};
+use reqwest::header::{self, CONTENT_TYPE};
+use serde::{Deserialize, Serialize};
+
+// #[tokio::test]
+// async fn root_path() {
+//     let addr = "http://127.0.0.1:8080/";
+//     let body = reqwest::get(addr).await.unwrap().text().await.unwrap();
+
+//     println!("body = {body:?}");
+// }
+
+#[derive(Serialize, Deserialize)]
+struct FindOneOptions {
+    pub comment: Option<Bson>,
+    pub projection: Option<Document>,
+    pub skip: Option<u64>,
+    pub sort: Option<Document>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct FindOneBody {
+    pub filter: Document,
+    pub options: FindOneOptions,
+}
 
 #[tokio::test]
-async fn quick_dev() -> Result<()> {
-    let hc = httpc_test::new_client("http://localhost:8080")?;
+async fn find_one_path() {
+    let body = FindOneBody {
+        filter: doc! {"name": "artur", "age": 31},
+        options: FindOneOptions {
+            comment: None,
+            projection: Some(doc! {"_id": 0}),
+            skip: None,
+            sort: None,
+        },
+    };
 
-    hc.do_get("/hello?name=Artur").await?.print().await?;
-    hc.do_get("/hello2/heloisio").await?.print().await?;
+    let bson_serializer = bson::Serializer::new();
+    let body_bson = body.serialize(bson_serializer).unwrap();
+    let req_body = body_bson.into_canonical_extjson().to_string();
 
-    // Auth
-    let req_login = hc.do_post("/api/login", json!({"username": "demo1", "pwd": "welcome"}));
+    println!("Request Body: {:?}", req_body);
 
-    req_login.await?.print().await?;
+    let mut headers = header::HeaderMap::new();
+    headers.insert(header::CONTENT_TYPE, "application/ejson".parse().unwrap());
 
-    Ok(())
+    let client = reqwest::Client::builder()
+        .default_headers(headers)
+        .build()
+        .unwrap();
+
+    let res = client
+        .post("http://127.0.0.1:8080/findOne")
+        .body(req_body)
+        .send()
+        .await
+        .unwrap();
+
+    let content_type = res.headers().get(CONTENT_TYPE).unwrap();
+    println!("Content Type: {:?}", content_type);
+
+    let res_body = res.bytes().await.unwrap();
+    let reader = Cursor::new(res_body.clone());
+    let document = Document::from_reader(reader).unwrap();
+    println!("body = {document:?}");
 }
