@@ -1,6 +1,6 @@
 use std::io::Cursor;
 
-use mongodb::bson::{self, doc, Binary, Bson, Document};
+use mongodb::bson::{self, doc, Bson, Document};
 use reqwest::header::{self, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 
@@ -15,18 +15,15 @@ struct FindOneOptions {
 #[derive(Serialize, Deserialize)]
 struct FindOneBody {
     pub filter: Document,
-    pub options: Option<FindOneOptions>,
+    pub options: Option<Document>,
 }
 
 #[tokio::test]
 async fn find_one_path() {
     let body = FindOneBody {
         filter: doc! {"name": "artur"},
-        options: Some(FindOneOptions {
-            comment: None,
-            projection: Some(doc! {"_id": 0}),
-            skip: None,
-            sort: None,
+        options: Some(doc! {
+            "projection": doc! {"_id": 0},
         }),
     };
 

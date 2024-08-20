@@ -11,10 +11,10 @@ use mongodb::bson::{self, Bson};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
-pub struct CustomParser<T>(pub T);
+pub struct Parser<T>(pub T);
 
 #[async_trait]
-impl<T, S> FromRequest<S> for CustomParser<T>
+impl<T, S> FromRequest<S> for Parser<T>
 where
     S: Send + Sync,
     T: DeserializeOwned,
@@ -33,6 +33,6 @@ where
         let body_bson: Bson = body_ejson.try_into().unwrap();
         let body_struct: T = T::deserialize(bson::Deserializer::new(body_bson.into())).unwrap();
 
-        Ok(CustomParser(body_struct))
+        Ok(Parser(body_struct))
     }
 }

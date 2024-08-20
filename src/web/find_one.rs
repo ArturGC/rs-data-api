@@ -1,8 +1,12 @@
 use axum::body::Bytes;
-use mongodb::{bson::Document, options::FindOneOptions, Client, Collection};
+use mongodb::{
+    bson::{self, Bson, Document},
+    options::FindOneOptions,
+    Client, Collection,
+};
 use serde::Deserialize;
 
-use super::custom_parser::CustomParser;
+use super::custom_parser::Parser;
 
 #[derive(Debug, Deserialize)]
 pub struct FindOneBody {
@@ -10,28 +14,26 @@ pub struct FindOneBody {
     options: Option<FindOneOptions>,
 }
 
-pub async fn handler(
-    CustomParser(FindOneBody { filter, options }): CustomParser<FindOneBody>,
-) -> Bytes {
+pub async fn handler(Parser(args): Parser<FindOneBody>) -> String {
     println!("\nFind One Handler");
-    println!("\nFilter: {:#?}", filter);
-    println!("\nOptions: {:#?}", options);
+    println!("\nFilter: {:#?}", args.filter);
+    println!("\nOptions: {:#?}", args.options);
 
     let collection = get_users_collection().await;
     let result = collection
-        .find_one(filter)
-        .with_options(options)
+        .find_one(args.filter)
+        .with_options(args.options)
         .await
         .unwrap()
         .unwrap();
 
     println!("\nDocument: {:?}", result);
 
-    let mut vector: Vec<u8> = Vec::new();
+    let doc_bson: Bson = result.into();
+    let doc_ejson = doc_bson.into_canonical_extjson();
+    let doc_string = doc_ejson.to_string();
 
-    result.to_writer(&mut vector).unwrap();
-
-    vector.into()
+    doc_string
 }
 
 async fn get_users_collection() -> Collection<Document> {
