@@ -4,17 +4,17 @@ use axum::{
     async_trait,
     body::Bytes,
     extract::{FromRequest, Request},
-    http::StatusCode,
+    http::{header, StatusCode},
     response::{IntoResponse, Response},
 };
-use mongodb::bson::{self, Bson};
+use mongodb::bson::{self, Bson, Document};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
-pub struct Parser<T>(pub T);
+pub struct EJSON<T>(pub T);
 
 #[async_trait]
-impl<T, S> FromRequest<S> for Parser<T>
+impl<T, S> FromRequest<S> for EJSON<T>
 where
     S: Send + Sync,
     T: DeserializeOwned,
@@ -33,6 +33,21 @@ where
         let body_bson: Bson = body_ejson.try_into().unwrap();
         let body_struct: T = T::deserialize(bson::Deserializer::new(body_bson.into())).unwrap();
 
-        Ok(Parser(body_struct))
+        Ok(EJSON(body_struct))
+    }
+}
+
+impl IntoResponse for EJSON<Option<Document>> {
+    fn into_response(self) -> Response {
+        let EJSON(body) = self;
+        let body_bson: Bson = body.into();
+        let body_ejson = body_bson.into_canonical_extjson();
+
+        (
+            StatusCode::ACCEPTED,
+            [(header::CONTENT_TYPE, "application/ejson")],
+            body_ejson.to_string(),
+        )
+            .into_response()
     }
 }

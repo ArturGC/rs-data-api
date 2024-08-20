@@ -1,8 +1,7 @@
-use std::io::Cursor;
-
 use mongodb::bson::{self, doc, Bson, Document};
 use reqwest::header::{self, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Serialize, Deserialize)]
 struct FindOneOptions {
@@ -49,10 +48,9 @@ async fn find_one_path() {
         .unwrap();
 
     let content_type = res.headers().get(CONTENT_TYPE).unwrap();
-    println!("Content Type: {:?}", content_type);
+    println!("Response Content Type: {:?}", content_type);
 
-    let res_body = res.bytes().await.unwrap();
-    let reader = Cursor::new(res_body.clone());
-    let document = Document::from_reader(reader).unwrap();
-    println!("body = {document:?}");
+    let body_ejson: Value = res.json().await.unwrap();
+    let body_bson: Bson = body_ejson.try_into().unwrap();
+    println!("Body: {body_bson:?}");
 }

@@ -1,12 +1,7 @@
-use axum::body::Bytes;
-use mongodb::{
-    bson::{self, Bson, Document},
-    options::FindOneOptions,
-    Client, Collection,
-};
+use mongodb::{bson::Document, options::FindOneOptions, Client, Collection};
 use serde::Deserialize;
 
-use super::custom_parser::Parser;
+use crate::web::ejson::EJSON;
 
 #[derive(Debug, Deserialize)]
 pub struct FindOneBody {
@@ -14,26 +9,21 @@ pub struct FindOneBody {
     options: Option<FindOneOptions>,
 }
 
-pub async fn handler(Parser(args): Parser<FindOneBody>) -> String {
+pub async fn handler(EJSON(args): EJSON<FindOneBody>) -> EJSON<Option<Document>> {
     println!("\nFind One Handler");
-    println!("\nFilter: {:#?}", args.filter);
-    println!("\nOptions: {:#?}", args.options);
+    println!("\nFilter: {:?}", args.filter);
+    println!("\nOptions: {:?}", args.options);
 
     let collection = get_users_collection().await;
     let result = collection
         .find_one(args.filter)
         .with_options(args.options)
         .await
-        .unwrap()
         .unwrap();
 
     println!("\nDocument: {:?}", result);
 
-    let doc_bson: Bson = result.into();
-    let doc_ejson = doc_bson.into_canonical_extjson();
-    let doc_string = doc_ejson.to_string();
-
-    doc_string
+    EJSON(result)
 }
 
 async fn get_users_collection() -> Collection<Document> {
