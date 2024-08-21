@@ -1,9 +1,12 @@
 {
     "cSpell.words": [
+        "axum",
         "bson",
         "ejson",
         "EJSON",
         "extjson",
-        "mongodb"
+        "mongodb",
+        "reqwest",
+        "tokio"
     ]
 }

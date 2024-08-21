@@ -22,16 +22,32 @@ where
     type Rejection = Response;
 
     async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
-        let content_type = req.headers().get("content-type").unwrap().to_str().unwrap();
+        let header_value = req
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .ok_or((StatusCode::BAD_REQUEST, "Content Type not found").into_response())?;
+
+        let content_type = header_value
+            .to_str()
+            .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()).into_response())?;
 
         if content_type != "application/ejson" {
-            return Err((StatusCode::BAD_REQUEST, "Deu ruim").into_response());
+            return Err((StatusCode::BAD_REQUEST, "Content Type not accepted").into_response());
         }
 
-        let body_bytes: Bytes = Bytes::from_request(req, state).await.unwrap();
-        let body_ejson: Value = serde_json::from_reader(Cursor::new(body_bytes)).unwrap();
-        let body_bson: Bson = body_ejson.try_into().unwrap();
-        let body_struct: T = T::deserialize(bson::Deserializer::new(body_bson.into())).unwrap();
+        let body_bytes = Bytes::from_request(req, state)
+            .await
+            .map_err(|e| (StatusCode::BAD_REQUEST, e.body_text()).into_response())?;
+
+        let body_ejson: Value = serde_json::from_reader(Cursor::new(body_bytes))
+            .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()).into_response())?;
+
+        let body_bson: Bson = body_ejson
+            .try_into()
+            .map_err(|_| (StatusCode::BAD_REQUEST, "EJSON to BSON parse error").into_response())?;
+
+        let body_struct: T = T::deserialize(bson::Deserializer::new(body_bson.into()))
+            .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()).into_response())?;
 
         Ok(EJSON(body_struct))
     }
@@ -39,8 +55,7 @@ where
 
 impl IntoResponse for EJSON<Option<Document>> {
     fn into_response(self) -> Response {
-        let EJSON(body) = self;
-        let body_bson: Bson = body.into();
+        let body_bson: Bson = self.0.into();
         let body_ejson = body_bson.into_canonical_extjson();
 
         (

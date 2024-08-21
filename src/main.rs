@@ -1,38 +1,33 @@
-use axum::{
-    body::Body,
-    http::{header, Request, StatusCode},
-    middleware::{from_fn, Next},
-    response::Response,
-    routing::{get, post},
-    Router,
-};
-
 mod web;
 
+use axum::{routing::post, Router};
+
+use mongodb::Client;
+use tokio::net::TcpListener;
 use web::find_one;
 
 #[tokio::main]
 async fn main() {
-    let addr = "127.0.0.1:8080";
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    let client = get_client().await;
+    let listener = get_listener().await;
+
     let router = Router::new()
-        .route("/", get(|| async { "Hello, World!" }))
         .route("/findOne", post(find_one::handler))
-        .route_layer(from_fn(auth));
+        .with_state(client);
 
     axum::serve(listener, router).await.unwrap();
 }
 
-async fn auth(req: Request<Body>, next: Next) -> Result<Response, StatusCode> {
-    let accept_header = req
-        .headers()
-        .get(header::CONTENT_TYPE)
-        .map(|value| value.to_str().unwrap().to_owned())
-        .unwrap();
+async fn get_client() -> Client {
+    let uri = "mongodb://127.0.0.1:27018";
 
-    println!("Content Type: {accept_header}");
+    Client::with_uri_str(uri).await.unwrap()
+}
 
-    Ok(next.run(req).await)
+async fn get_listener() -> TcpListener {
+    let addr = "127.0.0.1:8080";
+
+    tokio::net::TcpListener::bind(addr).await.unwrap()
 }
 
 // https://github.com/tokio-rs/axum/discussions/1131
