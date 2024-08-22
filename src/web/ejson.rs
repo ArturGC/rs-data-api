@@ -7,7 +7,10 @@ use axum::{
     http::{header, StatusCode},
     response::{IntoResponse, Response},
 };
-use mongodb::bson::{self, Bson, Document};
+use mongodb::{
+    bson::{self, bson, Bson, Document},
+    results::InsertOneResult,
+};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
@@ -46,7 +49,7 @@ where
             .try_into()
             .map_err(|_| (StatusCode::BAD_REQUEST, "EJSON to BSON parse error").into_response())?;
 
-        let body_struct: T = T::deserialize(bson::Deserializer::new(body_bson.into()))
+        let body_struct: T = T::deserialize(bson::Deserializer::new(body_bson))
             .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()).into_response())?;
 
         Ok(EJSON(body_struct))
@@ -56,6 +59,20 @@ where
 impl IntoResponse for EJSON<Option<Document>> {
     fn into_response(self) -> Response {
         let body_bson: Bson = self.0.into();
+        let body_ejson = body_bson.into_canonical_extjson();
+
+        (
+            StatusCode::ACCEPTED,
+            [(header::CONTENT_TYPE, "application/ejson")],
+            body_ejson.to_string(),
+        )
+            .into_response()
+    }
+}
+
+impl IntoResponse for EJSON<InsertOneResult> {
+    fn into_response(self) -> Response {
+        let body_bson: Bson = bson!({ "inserted_id": self.0.inserted_id });
         let body_ejson = body_bson.into_canonical_extjson();
 
         (

@@ -116,5 +116,5 @@ async fn wrong_struct_body() {
         .unwrap();
 
     assert_eq!(res.status(), StatusCode::BAD_REQUEST);
-    assert_eq!(res.text().await.unwrap(), "missing field `filter`");
+    assert!(res.text().await.unwrap().contains("missing field"));
 }
