@@ -1,10 +1,10 @@
-mod web;
+pub mod web;
 
 use axum::{routing::post, Router};
 
 use mongodb::Client;
 use tokio::net::TcpListener;
-use web::find_one;
+use web::{find_one, insert_one};
 
 #[tokio::main]
 async fn main() {
@@ -13,6 +13,7 @@ async fn main() {
 
     let router = Router::new()
         .route("/findOne", post(find_one::handler))
+        .route("/insertOne", post(insert_one::handler))
         .with_state(client);
 
     axum::serve(listener, router).await.unwrap();

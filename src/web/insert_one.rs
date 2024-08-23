@@ -3,28 +3,28 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use mongodb::{bson::Document, options::FindOneOptions, Client};
+use mongodb::{self, bson::Document, options::InsertOneOptions, results::InsertOneResult, Client};
 use serde::Deserialize;
 use serde_json::json;
 
 use crate::web::ejson::EJSON;
 
 #[derive(Debug, Deserialize)]
-pub struct FindOneBody {
+pub struct InsertOneBody {
     db: String,
     collection: String,
-    filter: Document,
-    options: Option<FindOneOptions>,
+    document: Document,
+    options: Option<InsertOneOptions>,
 }
 
 pub async fn handler(
     State(client): State<Client>,
-    EJSON(args): EJSON<FindOneBody>,
-) -> Result<EJSON<Option<Document>>, Response> {
+    EJSON(args): EJSON<InsertOneBody>,
+) -> Result<EJSON<InsertOneResult>, Response> {
     let result = client
         .database(&args.db)
         .collection(&args.collection)
-        .find_one(args.filter)
+        .insert_one(args.document)
         .with_options(args.options)
         .await
         .map_err(|e| {
