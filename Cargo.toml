@@ -3,16 +3,22 @@ name = "rs-data-api"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "rs_data_api"
+path = "src/main.rs"
+
 [dependencies]
 axum = "0.7.5"
-serde = "1.0.208"
-serde_json = "1.0.124"
+serde = "1.0.209"
+serde_json = "1.0.127"
 mongodb = "3.0.1"
 tokio = { version = "1.39.3", features = ["full"] }
+tower = "0.5.0"
 tower-cookies = "0.10.0"
 tower-http = { version = "0.5.2", features = ["fs"] }
 
 [dev-dependencies]
 anyhow = "1.0.86"
+axum-test = "15.6.0"
 httpc-test = "0.1.10"
 reqwest = { version = "0.12.7", features = ["json"] }
