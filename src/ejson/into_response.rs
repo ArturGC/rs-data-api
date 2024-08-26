@@ -69,6 +69,8 @@ impl IntoResponse for EJSON<mongodb::error::Error> {
     fn into_response(self) -> Response {
         let body = match *self.0.kind {
             ErrorKind::InsertMany(e) => bson_to_ejson_string(e),
+            ErrorKind::Write(e) => bson_to_ejson_string(e),
+            ErrorKind::Command(e) => bson_to_ejson_string(e),
             e => json!({"message": e.to_string()}).to_string(),
         };
 

@@ -1,17 +1,15 @@
+mod helpers;
+
 #[cfg(test)]
 mod tests {
-    use axum::{
-        body::{to_bytes, Body},
-        http::{header, Method, Request, StatusCode},
-    };
+    use axum::http::StatusCode;
     use mongodb::{
-        bson::{self, doc, oid::ObjectId, Bson, Document},
-        Collection, Database,
+        bson::{doc, oid::ObjectId, Document},
+        error::CommandError,
     };
-    use rs_data_api::{app, mdb};
     use serde::{Deserialize, Serialize};
-    use serde_json::Value;
-    use tower::ServiceExt;
+
+    use crate::helpers::{get_db_and_collection, get_struct_from_doc, one_shot};
 
     #[derive(Serialize, Deserialize)]
     struct FindOneBody {
@@ -21,66 +19,74 @@ mod tests {
         pub options: Option<Document>,
     }
 
-    async fn get_db_collection(db_name: &str, coll_name: &str) -> (Database, Collection<Document>) {
-        let client = mdb::get_client().await;
-        let db = client.database(db_name);
-        let collection = db.collection::<Document>(coll_name);
-
-        (db, collection)
-    }
-
-    fn get_body_from_struct(structure: impl Serialize) -> Body {
-        let structure_json = structure
-            .serialize(bson::Serializer::new())
-            .unwrap()
-            .into_canonical_extjson();
-
-        Body::from(serde_json::to_vec(&structure_json).unwrap())
-    }
-
-    async fn get_doc_from_body(body: Body) -> Document {
-        let body_bytes = to_bytes(body, usize::MAX).await.unwrap();
-        let body_json: Value = serde_json::from_slice(&body_bytes).unwrap();
-        let body_bson: Bson = body_json.try_into().unwrap();
-
-        body_bson.as_document().unwrap().clone()
-    }
-
-    fn get_request(uri: &str, body: Body) -> Request<Body> {
-        Request::builder()
-            .method(Method::POST)
-            .uri(uri)
-            .header(header::CONTENT_TYPE, "application/ejson")
-            .body(body)
-            .unwrap()
-    }
-
     #[tokio::test]
-    async fn hello_world() {
-        let db_name = format!("test-{}", ObjectId::new().to_string());
-        let coll_name = String::from("users");
-        let (db, collection) = get_db_collection(&db_name, &coll_name).await;
+    async fn find_one() {
+        let (db, collection) = get_db_and_collection().await;
 
         let user = doc! { "_id": ObjectId::new(), "name": "john", "age": 30 };
 
-        collection.delete_many(doc! {}).await.unwrap();
         collection.insert_one(&user).await.unwrap();
 
-        let body = get_body_from_struct(FindOneBody {
-            db: db_name,
-            collection: coll_name,
+        let body = FindOneBody {
+            db: db.name().into(),
+            collection: collection.name().into(),
             filter: doc! {"name": "john"},
             options: None,
-        });
+        };
 
-        let request = get_request("/findOne", body);
-        let app_router = app::build().await;
-        let response = app_router.oneshot(request).await.unwrap();
-        let (parts, body) = response.into_parts();
-        let doc = get_doc_from_body(body).await;
+        let (parts, doc) = one_shot("/findOne", body).await;
 
         assert_eq!(parts.status, StatusCode::ACCEPTED);
         assert_eq!(doc.get_str("name"), user.get_str("name"));
+
+        db.drop().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn find_one_with_options() {
+        let (db, collection) = get_db_and_collection().await;
+
+        let user_1 = doc! { "_id": ObjectId::new(), "name": "john", "age": 30 };
+        let user_2 = doc! { "_id": ObjectId::new(), "name": "ane", "age": 30 };
+
+        collection.insert_many([&user_1, &user_2]).await.unwrap();
+
+        let body = FindOneBody {
+            db: db.name().into(),
+            collection: collection.name().into(),
+            filter: doc! {"age": 30},
+            options: Some(doc! {
+                "projection": doc! {"_id": 0, "name": 1},
+                "sort": doc! {"name": 1}
+            }),
+        };
+
+        let (parts, doc) = one_shot("/findOne", body).await;
+
+        assert_eq!(parts.status, StatusCode::ACCEPTED);
+        assert_eq!(doc, doc! {"name": "ane"});
+
+        db.drop().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn find_one_error() {
+        let (db, collection) = get_db_and_collection().await;
+
+        let body = FindOneBody {
+            db: db.name().into(),
+            collection: collection.name().into(),
+            filter: doc! {"age": doc!{"$in": {}}},
+            options: None,
+        };
+
+        let (parts, doc) = one_shot("/findOne", body).await;
+
+        assert_eq!(parts.status, StatusCode::BAD_REQUEST);
+
+        let error = get_struct_from_doc::<CommandError>(doc);
+
+        assert!(error.message.contains("$in needs an array"));
 
         db.drop().await.unwrap();
     }
