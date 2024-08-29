@@ -1,13 +1,10 @@
+use crate::ejson::EJSON;
 use axum::{
     extract::State,
-    http::StatusCode,
     response::{IntoResponse, Response},
 };
 use mongodb::{bson::Document, options::FindOneOptions, Client};
 use serde::Deserialize;
-use serde_json::json;
-
-use crate::web::ejson::EJSON;
 
 #[derive(Debug, Deserialize)]
 pub struct FindOneBody {
@@ -27,13 +24,7 @@ pub async fn handler(
         .find_one(args.filter)
         .with_options(args.options)
         .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                json!({"message": e.to_string()}).to_string(),
-            )
-                .into_response()
-        })?;
+        .map_err(|error| EJSON(error).into_response())?;
 
     Ok(EJSON(result))
 }

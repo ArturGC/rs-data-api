@@ -1,13 +1,11 @@
 use axum::{
     extract::State,
-    http::StatusCode,
     response::{IntoResponse, Response},
 };
 use mongodb::{self, bson::Document, options::InsertOneOptions, results::InsertOneResult, Client};
 use serde::Deserialize;
-use serde_json::json;
 
-use crate::web::ejson::EJSON;
+use crate::ejson::EJSON;
 
 #[derive(Debug, Deserialize)]
 pub struct InsertOneBody {
@@ -27,13 +25,7 @@ pub async fn handler(
         .insert_one(args.document)
         .with_options(args.options)
         .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                json!({"message": e.to_string()}).to_string(),
-            )
-                .into_response()
-        })?;
+        .map_err(|error| EJSON(error).into_response())?;
 
     Ok(EJSON(result))
 }
