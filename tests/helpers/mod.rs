@@ -1,9 +1,11 @@
+#![allow(unused)]
+
 use axum::{
     body::{to_bytes, Body},
     http::{header, response::Parts, Method, Request},
 };
 use mongodb::{
-    bson::{self, doc, oid::ObjectId, Bson, Document},
+    bson::{self, doc, oid::ObjectId, Array, Bson, Document},
     Collection, Database,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -39,6 +41,14 @@ pub async fn get_document_from_body(body: Body) -> Document {
     body_bson.as_document().unwrap().clone()
 }
 
+pub async fn get_array_from_body(body: Body) -> Array {
+    let body_bytes = to_bytes(body, usize::MAX).await.unwrap();
+    let body_json: Value = serde_json::from_slice(&body_bytes).unwrap();
+    let body_bson: Bson = body_json.try_into().unwrap();
+
+    body_bson.as_array().unwrap().clone()
+}
+
 pub fn get_struct_from_doc<T: DeserializeOwned>(doc: Document) -> T {
     T::deserialize(bson::Deserializer::new(bson::from_document(doc).unwrap())).unwrap()
 }
@@ -52,12 +62,25 @@ pub fn build_request(uri: &str, body: Body) -> Request<Body> {
         .unwrap()
 }
 
-pub async fn one_shot(uri: &str, body: impl Serialize) -> (Parts, Document) {
+pub async fn one_shot(uri: &str, body: impl Serialize) -> (Parts, Body) {
     let body_ejson = get_body_ejson_from_struct(body);
     let request = build_request(uri, body_ejson);
     let app_router = app::build().await;
     let (parts, body) = app_router.oneshot(request).await.unwrap().into_parts();
+
+    (parts, body)
+}
+
+pub async fn one_shot_document(uri: &str, body: impl Serialize) -> (Parts, Document) {
+    let (parts, body) = one_shot(uri, body).await;
     let doc = get_document_from_body(body).await;
+
+    (parts, doc)
+}
+
+pub async fn one_shot_array(uri: &str, body: impl Serialize) -> (Parts, Vec<Bson>) {
+    let (parts, body) = one_shot(uri, body).await;
+    let doc = get_array_from_body(body).await;
 
     (parts, doc)
 }

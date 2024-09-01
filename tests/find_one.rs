@@ -9,7 +9,7 @@ mod tests {
     };
     use serde::{Deserialize, Serialize};
 
-    use crate::helpers::{get_db_and_collection, get_struct_from_doc, one_shot};
+    use crate::helpers::{get_db_and_collection, get_struct_from_doc, one_shot_document};
 
     #[derive(Serialize, Deserialize)]
     struct FindOneBody {
@@ -34,7 +34,7 @@ mod tests {
             options: None,
         };
 
-        let (parts, doc) = one_shot("/findOne", body).await;
+        let (parts, doc) = one_shot_document("/findOne", body).await;
 
         assert_eq!(parts.status, StatusCode::ACCEPTED);
         assert_eq!(doc.get_str("name"), user.get_str("name"));
@@ -61,7 +61,7 @@ mod tests {
             }),
         };
 
-        let (parts, doc) = one_shot("/findOne", body).await;
+        let (parts, doc) = one_shot_document("/findOne", body).await;
 
         assert_eq!(parts.status, StatusCode::ACCEPTED);
         assert_eq!(doc, doc! {"name": "ane"});
@@ -80,7 +80,7 @@ mod tests {
             options: None,
         };
 
-        let (parts, doc) = one_shot("/findOne", body).await;
+        let (parts, doc) = one_shot_document("/findOne", body).await;
 
         assert_eq!(parts.status, StatusCode::BAD_REQUEST);
 

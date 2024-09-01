@@ -3,13 +3,10 @@ mod helpers;
 #[cfg(test)]
 mod tests {
     use axum::http::StatusCode;
-    use mongodb::{
-        bson::{doc, oid::ObjectId, Document},
-        error::WriteFailure,
-    };
+    use mongodb::bson::{doc, oid::ObjectId, Document};
     use serde::{Deserialize, Serialize};
 
-    use crate::helpers::{get_db_and_collection, get_struct_from_doc, one_shot};
+    use crate::helpers::{get_db_and_collection, one_shot_document};
 
     #[derive(Debug, Deserialize, Serialize)]
     pub struct InsertManyBody {
@@ -32,7 +29,7 @@ mod tests {
             options: None,
         };
 
-        let (parts, doc) = one_shot("/insertMany", body).await;
+        let (parts, doc) = one_shot_document("/insertMany", body).await;
 
         assert_eq!(parts.status, StatusCode::ACCEPTED);
         assert_eq!(
@@ -70,7 +67,7 @@ mod tests {
             }),
         };
 
-        let (parts, doc) = one_shot("/insertMany", body).await;
+        let (parts, doc) = one_shot_document("/insertMany", body).await;
 
         assert_eq!(parts.status, StatusCode::ACCEPTED);
         assert_eq!(
@@ -103,7 +100,7 @@ mod tests {
             }),
         };
 
-        let (parts, doc) = one_shot("/insertMany", body).await;
+        let (parts, doc) = one_shot_document("/insertMany", body).await;
 
         assert_eq!(parts.status, StatusCode::BAD_REQUEST);
 

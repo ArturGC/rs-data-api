@@ -9,9 +9,10 @@ path = "src/main.rs"
 
 [dependencies]
 axum = "0.7.5"
+futures = "0.3.30"
+mongodb = "3.0.1"
 serde = "1.0.209"
 serde_json = "1.0.127"
-mongodb = "3.0.1"
 tokio = { version = "1.39.3", features = ["full"] }
 tower = "0.5.0"
 tower-cookies = "0.10.0"
