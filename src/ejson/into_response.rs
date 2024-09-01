@@ -1,4 +1,5 @@
 use axum::{
+    body::Body,
     http::{header, StatusCode},
     response::{IntoResponse, Response},
 };
@@ -26,12 +27,24 @@ impl IntoResponse for EJSON<Option<Document>> {
         let body_bson: Bson = self.0.into();
         let body_ejson = body_bson.into_canonical_extjson();
 
-        (
-            StatusCode::ACCEPTED,
-            [(header::CONTENT_TYPE, "application/ejson")],
-            body_ejson.to_string(),
-        )
-            .into_response()
+        Response::builder()
+            .status(StatusCode::ACCEPTED)
+            .header(header::CONTENT_TYPE, "application/ejson")
+            .body(Body::from(body_ejson.to_string()))
+            .unwrap()
+    }
+}
+
+impl IntoResponse for EJSON<Vec<Document>> {
+    fn into_response(self) -> Response {
+        let body_bson: Bson = self.0.into();
+        let body_ejson = body_bson.into_canonical_extjson();
+
+        Response::builder()
+            .status(StatusCode::ACCEPTED)
+            .header(header::CONTENT_TYPE, "application/ejson")
+            .body(Body::from(body_ejson.to_string()))
+            .unwrap()
     }
 }
 
@@ -40,12 +53,11 @@ impl IntoResponse for EJSON<InsertOneResult> {
         let body_bson: Bson = bson!({ "inserted_id": self.0.inserted_id });
         let body_ejson = body_bson.into_canonical_extjson();
 
-        (
-            StatusCode::ACCEPTED,
-            [(header::CONTENT_TYPE, "application/ejson")],
-            body_ejson.to_string(),
-        )
-            .into_response()
+        Response::builder()
+            .status(StatusCode::ACCEPTED)
+            .header(header::CONTENT_TYPE, "application/ejson")
+            .body(Body::from(body_ejson.to_string()))
+            .unwrap()
     }
 }
 
@@ -56,29 +68,27 @@ impl IntoResponse for EJSON<InsertManyResult> {
         let body_bson: Bson = bson!({ "inserted_ids": Document::from_iter(formatted_iter) });
         let body_ejson = body_bson.into_canonical_extjson();
 
-        (
-            StatusCode::ACCEPTED,
-            [(header::CONTENT_TYPE, "application/ejson")],
-            body_ejson.to_string(),
-        )
-            .into_response()
+        Response::builder()
+            .status(StatusCode::ACCEPTED)
+            .header(header::CONTENT_TYPE, "application/ejson")
+            .body(Body::from(body_ejson.to_string()))
+            .unwrap()
     }
 }
 
 impl IntoResponse for EJSON<mongodb::error::Error> {
     fn into_response(self) -> Response {
-        let body = match *self.0.kind {
+        let data = match *self.0.kind {
             ErrorKind::InsertMany(e) => bson_to_ejson_string(e),
             ErrorKind::Write(e) => bson_to_ejson_string(e),
             ErrorKind::Command(e) => bson_to_ejson_string(e),
             e => json!({"message": e.to_string()}).to_string(),
         };
 
-        (
-            StatusCode::BAD_REQUEST,
-            [(header::CONTENT_TYPE, "application/ejson")],
-            body,
-        )
-            .into_response()
+        Response::builder()
+            .status(StatusCode::BAD_REQUEST)
+            .header(header::CONTENT_TYPE, "application/ejson")
+            .body(Body::from(data))
+            .unwrap()
     }
 }

@@ -9,7 +9,7 @@ mod tests {
     };
     use serde::{Deserialize, Serialize};
 
-    use crate::helpers::{get_db_and_collection, get_struct_from_doc, one_shot};
+    use crate::helpers::{get_db_and_collection, get_struct_from_doc, one_shot_document};
 
     #[derive(Debug, Serialize, Deserialize)]
     struct InsertOneBody {
@@ -31,7 +31,7 @@ mod tests {
             options: None,
         };
 
-        let (parts, doc) = one_shot("/insertOne", body).await;
+        let (parts, doc) = one_shot_document("/insertOne", body).await;
 
         assert_eq!(parts.status, StatusCode::ACCEPTED);
         assert_eq!(doc.get("inserted_id"), user.get("_id"));
@@ -59,7 +59,7 @@ mod tests {
             }),
         };
 
-        let (parts, doc) = one_shot("/insertOne", body).await;
+        let (parts, doc) = one_shot_document("/insertOne", body).await;
 
         assert_eq!(parts.status, StatusCode::ACCEPTED);
         assert_eq!(doc.get("inserted_id"), user.get("_id"));
@@ -81,7 +81,7 @@ mod tests {
             options: None,
         };
 
-        let (parts, doc) = one_shot("/insertOne", body).await;
+        let (parts, doc) = one_shot_document("/insertOne", body).await;
 
         assert_eq!(parts.status, StatusCode::BAD_REQUEST);
 
