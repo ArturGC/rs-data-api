@@ -5,17 +5,17 @@ use axum::{
 };
 use mongodb::{
     self,
-    bson::{self, bson, Bson, Document},
+    bson::{self, Bson, Document},
     error::ErrorKind,
-    results::{InsertManyResult, InsertOneResult},
+    results::{InsertManyResult, InsertOneResult, UpdateResult},
 };
 use serde::Serialize;
 use serde_json::json;
 
 use super::EJSON;
 
-fn bson_to_ejson_string(something: impl Serialize) -> String {
-    something
+fn struct_to_ejson_string(structure: impl Serialize) -> String {
+    structure
         .serialize(bson::Serializer::new())
         .unwrap()
         .into_canonical_extjson()
@@ -25,12 +25,12 @@ fn bson_to_ejson_string(something: impl Serialize) -> String {
 impl IntoResponse for EJSON<Option<Document>> {
     fn into_response(self) -> Response {
         let body_bson: Bson = self.0.into();
-        let body_ejson = body_bson.into_canonical_extjson();
+        let body_ejson_string = body_bson.into_canonical_extjson().to_string();
 
         Response::builder()
             .status(StatusCode::ACCEPTED)
             .header(header::CONTENT_TYPE, "application/ejson")
-            .body(Body::from(body_ejson.to_string()))
+            .body(Body::from(body_ejson_string))
             .unwrap()
     }
 }
@@ -38,40 +38,48 @@ impl IntoResponse for EJSON<Option<Document>> {
 impl IntoResponse for EJSON<Vec<Document>> {
     fn into_response(self) -> Response {
         let body_bson: Bson = self.0.into();
-        let body_ejson = body_bson.into_canonical_extjson();
+        let body_ejson_string = body_bson.into_canonical_extjson().to_string();
 
         Response::builder()
             .status(StatusCode::ACCEPTED)
             .header(header::CONTENT_TYPE, "application/ejson")
-            .body(Body::from(body_ejson.to_string()))
+            .body(Body::from(body_ejson_string))
             .unwrap()
     }
 }
 
 impl IntoResponse for EJSON<InsertOneResult> {
     fn into_response(self) -> Response {
-        let body_bson: Bson = bson!({ "inserted_id": self.0.inserted_id });
-        let body_ejson = body_bson.into_canonical_extjson();
+        let body_ejson_string = struct_to_ejson_string(self.0);
 
         Response::builder()
             .status(StatusCode::ACCEPTED)
             .header(header::CONTENT_TYPE, "application/ejson")
-            .body(Body::from(body_ejson.to_string()))
+            .body(Body::from(body_ejson_string))
             .unwrap()
     }
 }
 
 impl IntoResponse for EJSON<InsertManyResult> {
     fn into_response(self) -> Response {
-        let original_iter = self.0.inserted_ids.into_iter();
-        let formatted_iter = original_iter.map(|(i, id)| (i.to_string(), id));
-        let body_bson: Bson = bson!({ "inserted_ids": Document::from_iter(formatted_iter) });
-        let body_ejson = body_bson.into_canonical_extjson();
+        let body_ejson_string = struct_to_ejson_string(self.0);
 
         Response::builder()
             .status(StatusCode::ACCEPTED)
             .header(header::CONTENT_TYPE, "application/ejson")
-            .body(Body::from(body_ejson.to_string()))
+            .body(Body::from(body_ejson_string))
+            .unwrap()
+    }
+}
+
+impl IntoResponse for EJSON<UpdateResult> {
+    fn into_response(self) -> Response {
+        let body_ejson_string = struct_to_ejson_string(self.0);
+
+        Response::builder()
+            .status(StatusCode::ACCEPTED)
+            .header(header::CONTENT_TYPE, "application/ejson")
+            .body(Body::from(body_ejson_string))
             .unwrap()
     }
 }
@@ -79,9 +87,9 @@ impl IntoResponse for EJSON<InsertManyResult> {
 impl IntoResponse for EJSON<mongodb::error::Error> {
     fn into_response(self) -> Response {
         let data = match *self.0.kind {
-            ErrorKind::InsertMany(e) => bson_to_ejson_string(e),
-            ErrorKind::Write(e) => bson_to_ejson_string(e),
-            ErrorKind::Command(e) => bson_to_ejson_string(e),
+            ErrorKind::InsertMany(e) => struct_to_ejson_string(e),
+            ErrorKind::Write(e) => struct_to_ejson_string(e),
+            ErrorKind::Command(e) => struct_to_ejson_string(e),
             e => json!({"message": e.to_string()}).to_string(),
         };
 
