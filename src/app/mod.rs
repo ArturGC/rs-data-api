@@ -10,6 +10,7 @@ pub async fn build() -> Router {
         .route("/findOne", post(crud::find_one::handler))
         .route("/insertMany", post(crud::insert_many::handler))
         .route("/insertOne", post(crud::insert_one::handler))
+        .route("/updateMany", post(crud::update_many::handler))
         .route("/updateOne", post(crud::update_one::handler))
         .with_state(client)
 }
