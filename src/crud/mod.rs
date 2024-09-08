@@ -1,3 +1,5 @@
+pub mod delete_many;
+pub mod delete_one;
 pub mod find;
 pub mod find_one;
 pub mod insert_many;
