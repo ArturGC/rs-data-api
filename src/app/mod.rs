@@ -6,6 +6,8 @@ pub async fn build() -> Router {
     let client = mdb::get_client().await;
 
     Router::new()
+        .route("/deleteMany", post(crud::delete_many::handler))
+        .route("/deleteOne", post(crud::delete_one::handler))
         .route("/find", post(crud::find::handler))
         .route("/findOne", post(crud::find_one::handler))
         .route("/insertMany", post(crud::insert_many::handler))

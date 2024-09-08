@@ -7,7 +7,7 @@ use mongodb::{
     self,
     bson::{self, Bson, Document},
     error::ErrorKind,
-    results::{InsertManyResult, InsertOneResult, UpdateResult},
+    results::{DeleteResult, InsertManyResult, InsertOneResult, UpdateResult},
 };
 use serde::Serialize;
 use serde_json::json;
@@ -73,6 +73,18 @@ impl IntoResponse for EJSON<InsertManyResult> {
 }
 
 impl IntoResponse for EJSON<UpdateResult> {
+    fn into_response(self) -> Response {
+        let body_ejson_string = struct_to_ejson_string(self.0);
+
+        Response::builder()
+            .status(StatusCode::ACCEPTED)
+            .header(header::CONTENT_TYPE, "application/ejson")
+            .body(Body::from(body_ejson_string))
+            .unwrap()
+    }
+}
+
+impl IntoResponse for EJSON<DeleteResult> {
     fn into_response(self) -> Response {
         let body_ejson_string = struct_to_ejson_string(self.0);
 
